@@ -9,6 +9,18 @@ if ($command == '')
 	exit();
 }
 
+function verifyApiKey($providedKey) {
+	return $providedKey === API_KEY;
+}
+
+
+if (defined('API_KEY') && !empty(API_KEY) && !verifyApiKey($data['api_key'])) {
+	$output = array('command'=>$command,'error'=>'true', 'errorString'=>'The API key appears to be invalid.');
+	print(json_encode($output,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
+	exit();
+}
+
+
 // API stuff for songbook mobile apps
 
 if ($command == "venueExists")
@@ -135,7 +147,7 @@ if ($command == "connectionTest")
 }
 if ($command == "addSongs")
 {
-	$stmt = $db->prepare("INSERT OR IGNORE INTO songdb (artist, title, combined) VALUES (:artist, :title, :combined)");
+	$stmt = $db->prepare("INSERT IGNORE INTO songdb (artist, title, combined) VALUES (:artist, :title, :combined)");
 	$db->beginTransaction();
 	$errors = array();
 	$count = 0;

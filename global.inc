@@ -1,12 +1,44 @@
 <?php
 include("settings.inc");
-$db = new PDO("sqlite:$dbFilePath");
+$db = new PDO($dsn, $db_user, $db_pass, $db_options);
 
-$db->exec("CREATE TABLE IF NOT EXISTS songdb (song_id integer PRIMARY KEY AUTOINCREMENT, artist text, title  TEXT, combined TEXT UNIQUE)"); 
-$db->exec("CREATE TABLE IF NOT EXISTS state (accepting bool, serial integer NOT NULL)");
-$db->exec("INSERT OR IGNORE INTO state (rowid,accepting,serial) VALUES(0,0,1)");
-$db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_songstrings ON songdb(combined)");
-$db->exec("CREATE TABLE IF NOT EXISTS requests (request_id integer PRIMARY KEY AUTOINCREMENT, artist TEXT, title TEXT, singer TEXT, request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+// Create songdb table
+$db->exec("CREATE TABLE IF NOT EXISTS songdb (
+        song_id INT AUTO_INCREMENT PRIMARY KEY,
+        artist VARCHAR(255),
+        title VARCHAR(255),
+        combined VARCHAR(255) UNIQUE
+    )");
+
+// Create state table
+$db->exec("CREATE TABLE IF NOT EXISTS state (
+        accepting BOOLEAN,
+        serial INT NOT NULL
+    )");
+
+$stateExists  = $db->query("SELECT * FROM state LIMIT 0,1")->rowCount();
+if(!$stateExists){
+	// Insert into state table
+	$db->exec("INSERT IGNORE INTO state (accepting, serial) VALUES (0, 1)");
+}
+
+
+
+// Check if index exists before creating it
+$indexExists = $db->query("SHOW INDEX FROM songdb WHERE Key_name = 'idx_songstrings'")->rowCount();
+if ($indexExists == 0) {
+	$db->exec("CREATE UNIQUE INDEX idx_songstrings ON songdb(combined)");
+}
+
+// Create requests table
+$db->exec("CREATE TABLE IF NOT EXISTS requests (
+        request_id INT AUTO_INCREMENT PRIMARY KEY,
+        artist VARCHAR(255),
+        title VARCHAR(255),
+        singer VARCHAR(255),
+        request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $songdbtable = "songdb";
@@ -36,11 +68,12 @@ function sitefooter() {
 
 function navbar($backurl) 
 {
+	global $venueName;
 	if ($backurl == "")
 		$backurl = index.php;
 	global $screensize;
 	echo "<div class=navbar>
-	<span class=title>OpenKJ Songbook</span>
+	<span class=title>$venueName Songbook</span>
 	</div><div class=mainbody><span class=backbtn><a class=button href=\"$backurl\" class=navbar id=backlink>Back</a></span>";
 }
 
@@ -63,7 +96,7 @@ function getAccepting()
 {
 	global $db;
 	$accepting = false;
-        foreach ($db->query("SELECT accepting FROM state LIMIT 1") as $row)
+        foreach ($db->query("SELECT accepting FROM state LIMIT 0,1") as $row)
         {
                 $accepting = $row['accepting'];
         }
@@ -94,7 +127,7 @@ function getSerial()
 {
 	global $db;
 	$serial = -1;
-	foreach ($db->query("SELECT serial FROM state LIMIT 1") as $row)
+	foreach ($db->query("SELECT serial FROM state LIMIT 0,1") as $row)
         {
         	$serial = (int)$row['serial'];
         }
@@ -146,7 +179,7 @@ function getRequests()
 {
         global $db;
         $requests = array();
-        $result = $db->query("SELECT request_id,artist,title,singer,strftime('%s', request_time) AS unixtime FROM requests");
+        $result = $db->query("SELECT request_id, artist, title, singer, UNIX_TIMESTAMP(request_time) AS unixtime FROM requests;");
 	if ($result)
 	{
         	foreach ($result as $row)
